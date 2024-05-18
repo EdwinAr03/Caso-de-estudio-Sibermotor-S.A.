@@ -1,0 +1,110 @@
+import sqlite3
+import hashlib
+import random
+import string
+
+class Usuario:
+    def __init__(self, nombre_usuario, contraseña):
+        self.nombre_usuario = nombre_usuario
+        self.contraseña = contraseña
+
+class Producto:
+    def __init__(self, nombre, descripcion, categoria, precio, codigo_barra):
+        self.nombre = nombre
+        self.descripcion = descripcion
+        self.categoria = categoria
+        self.precio = precio
+        self.codigo_barra = codigo_barra
+
+class Inventario:
+    def __init__(self):
+        self.conexion = sqlite3.connect("inventario.db")
+        self.cursor = self.conexion.cursor()
+        self.crear_tabla_productos()
+
+    def __del__(self):
+        self.conexion.close()
+
+    def crear_tabla_productos(self):
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS productos
+                               (nombre TEXT, descripcion TEXT, categoria TEXT, precio REAL, codigo_barra TEXT)''')
+        self.conexion.commit()
+
+    def agregar_producto(self, producto):
+        self.cursor.execute('''INSERT INTO productos VALUES (?, ?, ?, ?, ?)''',
+                            (producto.nombre, producto.descripcion, producto.categoria, producto.precio, producto.codigo_barra))
+        self.conexion.commit()
+        print("Producto agregado al inventario:", producto.nombre)
+
+    def buscar_producto_por_codigo_barra(self, codigo_barra):
+        self.cursor.execute('''SELECT * FROM productos WHERE codigo_barra = ?''', (codigo_barra,))
+        producto = self.cursor.fetchone()
+        if producto:
+            print("Producto encontrado:")
+            print("Nombre:", producto[0])
+            print("Descripción:", producto[1])
+            print("Categoría:", producto[2])
+            print("Precio:", producto[3])
+        else:
+            print("Producto no encontrado en el inventario.")
+
+class Autenticacion:
+    def __init__(self):
+        self.conexion = sqlite3.connect("usuarios.db")
+        self.cursor = self.conexion.cursor()
+        self.crear_tabla_usuarios()
+
+    def __del__(self):
+        self.conexion.close()
+
+    def crear_tabla_usuarios(self):
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS usuarios
+                               (nombre_usuario TEXT, contraseña TEXT)''')
+        self.conexion.commit()
+
+    def registrar_usuario(self, nombre_usuario, contraseña):
+        self.cursor.execute('''INSERT INTO usuarios VALUES (?, ?)''', (nombre_usuario, hashlib.sha256(contraseña.encode()).hexdigest()))
+        self.conexion.commit()
+        print("Usuario registrado exitosamente.")
+
+    def autenticar_usuario(self, nombre_usuario, contraseña):
+        self.cursor.execute('''SELECT * FROM usuarios WHERE nombre_usuario = ? AND contraseña = ?''',
+                            (nombre_usuario, hashlib.sha256(contraseña.encode()).hexdigest()))
+        usuario = self.cursor.fetchone()
+        if usuario:
+            return True
+        else:
+            return False
+
+def generar_codigo_barra():
+    return ''.join(random.choices(string.digits, k=12))
+
+def main():
+    autenticacion = Autenticacion()
+    inventario = Inventario()
+
+    # Registro de usuarios de ejemplo
+    autenticacion.registrar_usuario("admin", "admin123")
+
+    # Autenticación de usuario
+    nombre_usuario = input("Ingrese su nombre de usuario: ")
+    contraseña = input("Ingrese su contraseña: ")
+    if autenticacion.autenticar_usuario(nombre_usuario, contraseña):
+        print("Inicio de sesión exitoso.")
+    else:
+        print("Nombre de usuario o contraseña incorrectos.")
+        return
+
+    # Simulación de agregar productos al inventario
+    producto1 = Producto("Camisa", "Camisa de manga corta", "Ropa", 20.99, generar_codigo_barra())
+    inventario.agregar_producto(producto1)
+
+    producto2 = Producto("Pantalón", "Pantalón de mezclilla", "Ropa", 29.99, generar_codigo_barra())
+    inventario.agregar_producto(producto2)
+
+    # Simulación de búsqueda de producto por código de barras
+    codigo_barra = input("Ingrese el código de barras del producto que desea buscar: ")
+    inventario.buscar_producto_por_codigo_barra(codigo_barra)
+
+if __name__ == "__main__":
+    main()
